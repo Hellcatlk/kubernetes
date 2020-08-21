@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	errorutils "k8s.io/apimachinery/pkg/util/errors"
@@ -32,6 +32,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/kubernetes/pkg/util/httptrace"
 )
 
 // StatefulPodControlInterface defines the interface that StatefulSetController uses to create, update, and delete Pods,
@@ -79,7 +80,8 @@ func (spc *realStatefulPodControl) CreateStatefulPod(set *apps.StatefulSet, pod 
 		return err
 	}
 	// If we created the PVCs attempt to create the Pod
-	_, err := spc.client.CoreV1().Pods(set.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+	ctx := httptrace.SpanContextFromAnnotations(set.GetAnnotations())
+	_, err := spc.client.CoreV1().Pods(set.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	// sink already exists errors
 	if apierrors.IsAlreadyExists(err) {
 		return err
@@ -115,7 +117,8 @@ func (spc *realStatefulPodControl) UpdateStatefulPod(set *apps.StatefulSet, pod 
 
 		attemptedUpdate = true
 		// commit the update, retrying on conflicts
-		_, updateErr := spc.client.CoreV1().Pods(set.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		ctx := httptrace.SpanContextFromAnnotations(set.GetAnnotations())
+		_, updateErr := spc.client.CoreV1().Pods(set.Namespace).Update(ctx, pod, metav1.UpdateOptions{})
 		if updateErr == nil {
 			return nil
 		}

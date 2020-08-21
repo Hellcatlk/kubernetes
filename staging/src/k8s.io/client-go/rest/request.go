@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/tools/metrics"
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/util/httptrace"
 )
 
 var (
@@ -869,6 +870,8 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 		req = req.WithContext(ctx)
 		req.Header = r.headers
 
+		// get span context from context, and inject span context into http request
+		httptrace.SpanContextToRequest(ctx, req)
 		r.backoff.Sleep(r.backoff.CalculateBackoff(r.URL()))
 		if retries > 0 {
 			// We are retrying the request that we already send to apiserver

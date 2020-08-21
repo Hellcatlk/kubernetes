@@ -453,7 +453,7 @@ type PodControlInterface interface {
 	// and sets the ControllerRef.
 	CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error
 	// CreatePodsWithControllerRef creates new pods according to the spec, and sets object as the pod's controller.
-	CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error
+	CreatePodsWithControllerRef(ctx context.Context, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error
 	// DeletePod deletes the pod identified by podID.
 	DeletePod(namespace string, podID string, object runtime.Object) error
 	// PatchPod patches the pod.
@@ -519,21 +519,21 @@ func validateControllerRef(controllerRef *metav1.OwnerReference) error {
 }
 
 func (r RealPodControl) CreatePods(namespace string, template *v1.PodTemplateSpec, object runtime.Object) error {
-	return r.createPods("", namespace, template, object, nil)
+	return r.createPods(context.Background(), "", namespace, template, object, nil)
 }
 
-func (r RealPodControl) CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, controllerObject runtime.Object, controllerRef *metav1.OwnerReference) error {
+func (r RealPodControl) CreatePodsWithControllerRef(ctx context.Context, namespace string, template *v1.PodTemplateSpec, controllerObject runtime.Object, controllerRef *metav1.OwnerReference) error {
 	if err := validateControllerRef(controllerRef); err != nil {
 		return err
 	}
-	return r.createPods("", namespace, template, controllerObject, controllerRef)
+	return r.createPods(ctx, "", namespace, template, controllerObject, controllerRef)
 }
 
 func (r RealPodControl) CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
 	if err := validateControllerRef(controllerRef); err != nil {
 		return err
 	}
-	return r.createPods(nodeName, namespace, template, object, controllerRef)
+	return r.createPods(context.Background(), nodeName, namespace, template, object, controllerRef)
 }
 
 func (r RealPodControl) PatchPod(namespace, name string, data []byte) error {
@@ -566,7 +566,7 @@ func GetPodFromTemplate(template *v1.PodTemplateSpec, parentObject runtime.Objec
 	return pod, nil
 }
 
-func (r RealPodControl) createPods(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
+func (r RealPodControl) createPods(ctx context.Context, nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
 	pod, err := GetPodFromTemplate(template, object, controllerRef)
 	if err != nil {
 		return err
@@ -577,7 +577,7 @@ func (r RealPodControl) createPods(nodeName, namespace string, template *v1.PodT
 	if len(labels.Set(pod.Labels)) == 0 {
 		return fmt.Errorf("unable to create pods, no labels")
 	}
-	newPod, err := r.KubeClient.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+	newPod, err := r.KubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		// only send an event if the namespace isn't terminating
 		if !apierrors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
@@ -652,7 +652,7 @@ func (f *FakePodControl) CreatePods(namespace string, spec *v1.PodTemplateSpec, 
 	return nil
 }
 
-func (f *FakePodControl) CreatePodsWithControllerRef(namespace string, spec *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
+func (f *FakePodControl) CreatePodsWithControllerRef(ctx context.Context, namespace string, spec *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
 	f.Lock()
 	defer f.Unlock()
 	f.CreateCallCount++

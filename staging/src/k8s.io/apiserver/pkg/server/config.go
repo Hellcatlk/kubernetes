@@ -68,6 +68,7 @@ import (
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kubernetes/pkg/util/httptrace"
 	utilsnet "k8s.io/utils/net"
 
 	// install apis
@@ -691,6 +692,8 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *Config) http.Handler {
 	handler = genericapifilters.WithWarningRecorder(handler)
 	handler = genericapifilters.WithCacheControl(handler)
 	handler = genericfilters.WithPanicRecovery(handler)
+	// inject span context
+	handler = httptrace.WithTracingHandler(handler)
 	return handler
 }
 
