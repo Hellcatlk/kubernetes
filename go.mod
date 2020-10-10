@@ -97,6 +97,11 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.20.3
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
+	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.13.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.13.0
+	go.opentelemetry.io/otel v0.13.0
+	go.opentelemetry.io/otel/exporters/stdout v0.13.0
+	go.opentelemetry.io/otel/sdk v0.13.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
