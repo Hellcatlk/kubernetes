@@ -33,6 +33,9 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagators"
 	"golang.org/x/net/http2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -868,6 +871,9 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 		}
 		req = req.WithContext(ctx)
 		req.Header = r.headers
+
+		props := otelhttptrace.WithPropagators(otel.NewCompositeTextMapPropagator(propagators.TraceContext{}, propagators.Baggage{}))
+		otelhttptrace.Inject(req.Context(), req, props)
 
 		r.backoff.Sleep(r.backoff.CalculateBackoff(r.URL()))
 		if retries > 0 {

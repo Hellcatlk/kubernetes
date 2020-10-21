@@ -27,12 +27,16 @@ import (
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugins
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
 	"k8s.io/kubernetes/cmd/kube-apiserver/app"
+	"k8s.io/kubernetes/pkg/util/httptrace"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	command := app.NewAPIServerCommand()
+
+	shutdown := httptrace.InitTracer()
+	defer shutdown()
 
 	// TODO: once we switch everything over to Cobra commands, we can go back to calling
 	// utilflag.InitFlags() (by removing its pflag.Parse() call). For now, we have to set the

@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	errorutils "k8s.io/apimachinery/pkg/util/errors"
@@ -32,6 +32,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/kubernetes/pkg/util/httptrace"
 )
 
 // StatefulPodControlInterface defines the interface that StatefulSetController uses to create, update, and delete Pods,
@@ -73,13 +74,17 @@ type realStatefulPodControl struct {
 }
 
 func (spc *realStatefulPodControl) CreateStatefulPod(set *apps.StatefulSet, pod *v1.Pod) error {
+	// Get span from annotations and set to ctx
+	ctx := httptrace.SpanContextFromAnnotations(context.Background(), set.GetAnnotations())
+
 	// Create the Pod's PVCs prior to creating the Pod
 	if err := spc.createPersistentVolumeClaims(set, pod); err != nil {
 		spc.recordPodEvent("create", set, pod, err)
 		return err
 	}
 	// If we created the PVCs attempt to create the Pod
-	_, err := spc.client.CoreV1().Pods(set.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+
+	_, err := spc.client.CoreV1().Pods(set.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	// sink already exists errors
 	if apierrors.IsAlreadyExists(err) {
 		return err
@@ -89,6 +94,9 @@ func (spc *realStatefulPodControl) CreateStatefulPod(set *apps.StatefulSet, pod 
 }
 
 func (spc *realStatefulPodControl) UpdateStatefulPod(set *apps.StatefulSet, pod *v1.Pod) error {
+	// Get span from annotations and set to ctx
+	ctx := httptrace.SpanContextFromAnnotations(context.Background(), set.GetAnnotations())
+
 	attemptedUpdate := false
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// assume the Pod is consistent
@@ -115,7 +123,7 @@ func (spc *realStatefulPodControl) UpdateStatefulPod(set *apps.StatefulSet, pod 
 
 		attemptedUpdate = true
 		// commit the update, retrying on conflicts
-		_, updateErr := spc.client.CoreV1().Pods(set.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		_, updateErr := spc.client.CoreV1().Pods(set.Namespace).Update(ctx, pod, metav1.UpdateOptions{})
 		if updateErr == nil {
 			return nil
 		}
@@ -136,7 +144,10 @@ func (spc *realStatefulPodControl) UpdateStatefulPod(set *apps.StatefulSet, pod 
 }
 
 func (spc *realStatefulPodControl) DeleteStatefulPod(set *apps.StatefulSet, pod *v1.Pod) error {
-	err := spc.client.CoreV1().Pods(set.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	// Get span from annotations and set to ctx
+	ctx := httptrace.SpanContextFromAnnotations(context.Background(), set.GetAnnotations())
+
+	err := spc.client.CoreV1().Pods(set.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 	spc.recordPodEvent("delete", set, pod, err)
 	return err
 }
@@ -179,12 +190,15 @@ func (spc *realStatefulPodControl) recordClaimEvent(verb string, set *apps.State
 // may be called again until no error is returned, indicating the PersistentVolumeClaims for pod are consistent with
 // set's Spec.
 func (spc *realStatefulPodControl) createPersistentVolumeClaims(set *apps.StatefulSet, pod *v1.Pod) error {
+	// Get span from annotations and set to ctx
+	ctx := httptrace.SpanContextFromAnnotations(context.Background(), set.GetAnnotations())
+
 	var errs []error
 	for _, claim := range getPersistentVolumeClaims(set, pod) {
 		pvc, err := spc.pvcLister.PersistentVolumeClaims(claim.Namespace).Get(claim.Name)
 		switch {
 		case apierrors.IsNotFound(err):
-			_, err := spc.client.CoreV1().PersistentVolumeClaims(claim.Namespace).Create(context.TODO(), &claim, metav1.CreateOptions{})
+			_, err := spc.client.CoreV1().PersistentVolumeClaims(claim.Namespace).Create(ctx, &claim, metav1.CreateOptions{})
 			if err != nil {
 				errs = append(errs, fmt.Errorf("failed to create PVC %s: %s", claim.Name, err))
 			}
