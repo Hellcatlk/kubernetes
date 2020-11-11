@@ -28,6 +28,7 @@ import (
 	"k8s.io/component-base/logs"
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugin
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
+	"k8s.io/component-base/traces"
 	"k8s.io/kubernetes/cmd/kube-controller-manager/app"
 )
 
@@ -43,6 +44,8 @@ func main() {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
+	// TODO: initTraces only if feature gate ObjectTraceIDs is enabled
+	traces.InitTraces("kube-controller-manage")
 	if err := command.Execute(); err != nil {
 		os.Exit(1)
 	}
