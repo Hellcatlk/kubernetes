@@ -25,7 +25,7 @@ import (
 	"go.opentelemetry.io/otel"
 	apitrace "go.opentelemetry.io/otel/api/trace"
 	"go.opentelemetry.io/otel/label"
-	"go.opentelemetry.io/otel/propagators"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type contextKeyType int
@@ -37,6 +37,11 @@ const initialTraceIDAnnotationKey string = "trace.kubernetes.io.initial"
 const spanContextAnnotationKey string = "trace.kubernetes.io.span.context"
 
 const initialTraceIDBaggageKey label.Key = "Initial-Trace-Id"
+
+// SpanContextWithObject returns a context.Context with Spacn and Baggage from the passed object
+func SpanContextWithObject(ctx context.Context, meta metav1.Object) context.Context {
+	return SpanContextFromAnnotations(ctx, meta.GetAnnotations())
+}
 
 // SpanContextFromAnnotations get span context from annotations
 func SpanContextFromAnnotations(ctx context.Context, annotations map[string]string) context.Context {

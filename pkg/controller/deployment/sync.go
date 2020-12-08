@@ -74,7 +74,7 @@ func (dc *DeploymentController) sync(d *apps.Deployment, rsList []*apps.ReplicaS
 // that were paused for longer than progressDeadlineSeconds.
 func (dc *DeploymentController) checkPausedConditions(d *apps.Deployment) error {
 	// Get span from annotations and set to ctx
-	ctx := httptrace.SpanContextFromAnnotations(context.Background(), d.GetAnnotations())
+	ctx := httptrace.SpanContextWithObject(context.Background(), d)
 
 	if !deploymentutil.HasProgressDeadline(d) {
 		return nil
@@ -141,7 +141,7 @@ const (
 // Note that the pod-template-hash will be added to adopted RSes and pods.
 func (dc *DeploymentController) getNewReplicaSet(d *apps.Deployment, rsList, oldRSs []*apps.ReplicaSet, createIfNotExisted bool) (*apps.ReplicaSet, error) {
 	// Get span from annotations and set to ctx
-	ctx := httptrace.SpanContextFromAnnotations(context.Background(), d.GetAnnotations())
+	ctx := httptrace.SpanContextWithObject(context.Background(), d)
 
 	existingNewRS := deploymentutil.FindNewReplicaSet(d, rsList)
 
@@ -418,7 +418,7 @@ func (dc *DeploymentController) scaleReplicaSetAndRecordEvent(rs *apps.ReplicaSe
 
 func (dc *DeploymentController) scaleReplicaSet(rs *apps.ReplicaSet, newScale int32, deployment *apps.Deployment, scalingOperation string) (bool, *apps.ReplicaSet, error) {
 	// Get span from annotations and set to ctx
-	ctx := httptrace.SpanContextFromAnnotations(context.Background(), rs.GetAnnotations())
+	ctx := httptrace.SpanContextWithObject(context.Background(), rs)
 
 	sizeNeedsUpdate := *(rs.Spec.Replicas) != newScale
 
@@ -444,7 +444,7 @@ func (dc *DeploymentController) scaleReplicaSet(rs *apps.ReplicaSet, newScale in
 // around by default 1) for historical reasons and 2) for the ability to rollback a deployment.
 func (dc *DeploymentController) cleanupDeployment(oldRSs []*apps.ReplicaSet, deployment *apps.Deployment) error {
 	// Get span from annotations and set to ctx
-	ctx := httptrace.SpanContextFromAnnotations(context.Background(), deployment.GetAnnotations())
+	ctx := httptrace.SpanContextWithObject(context.Background(), deployment)
 
 	if !deploymentutil.HasRevisionHistoryLimit(deployment) {
 		return nil
@@ -483,8 +483,8 @@ func (dc *DeploymentController) cleanupDeployment(oldRSs []*apps.ReplicaSet, dep
 
 // syncDeploymentStatus checks if the status is up-to-date and sync it if necessary
 func (dc *DeploymentController) syncDeploymentStatus(allRSs []*apps.ReplicaSet, newRS *apps.ReplicaSet, d *apps.Deployment) error {
-	// Get span from annotations and set to ctx
-	ctx := httptrace.SpanContextFromAnnotations(context.Background(), d.GetAnnotations())
+	// Get span and baggage from object and set to ctx
+	ctx := httptrace.SpanContextWithObject(context.Background(), d)
 
 	newStatus := calculateStatus(allRSs, newRS, d)
 
